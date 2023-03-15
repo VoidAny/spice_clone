@@ -18,7 +18,7 @@ dotenv.load_dotenv()
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
-SPICEGPT_CONVERSATION_TRIM_LENGTH = 21
+SPICEGPT_CONVERSATION_TRIM_LENGTH = 201
 
 NORMAL_MEME_SUBREDDITS: list[str] = [
     "memes", "HolUp", "facepalm", "dankmemes", "terriblefacebookmemes",
@@ -94,7 +94,7 @@ class SpiceBing(Spice):
             "mode": "Creative"
         }
         try:
-            r = await self.session.post(self.endpoint, json=payload)
+            r = self.session.post(self.endpoint, json=payload)
         except:
             return "An error occured while trying to get a response from the api. The request was unable to be sent. The API is mostly likely down."
         self.last_api_call = time.time()
@@ -125,7 +125,7 @@ class SpiceGPT3(Spice):
         self.messages = self.messages[-n:]
         self.messages[0] = {"role": "system", "content": self.start_prompt}
 
-    async def reply(self, prompt: str) -> str:
+    def reply(self, prompt: str) -> str:
         self.messages.append({"role": "user", "content": prompt})
         payload = {
             "messages": self.messages,
@@ -135,7 +135,7 @@ class SpiceGPT3(Spice):
             "Authorization": "Bearer " + OPENAI_API_KEY,
             "Content-Type": "application/json"
         }
-        r = await self.session.post(self.endpoint,
+        r = self.session.post(self.endpoint,
                                     json=payload,
                                     headers=headers)
         """
