@@ -23,7 +23,7 @@ SPICEGPT_CONVERSATION_TRIM_LENGTH = 201
 
 NORMAL_MEME_SUBREDDITS: list[str] = [
     "memes", "HolUp", "facepalm", "dankmemes", "terriblefacebookmemes",
-    "surrealmemes", "nukedmemes", "bonehurtingjuice", "WackyTicTacs"
+    "surrealmemes", "nukedmemes", "bonehurtingjuice", "WackyTicTacs", "ProgrammerHumor"
 ]
 DESTINY_MEME_SUBREDDITS: list[str] = ["D2memes", "DestinyMemes"]
 
