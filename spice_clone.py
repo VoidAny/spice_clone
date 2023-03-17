@@ -23,7 +23,8 @@ SPICEGPT_CONVERSATION_TRIM_LENGTH = 201
 
 NORMAL_MEME_SUBREDDITS: list[str] = [
     "memes", "HolUp", "facepalm", "dankmemes", "terriblefacebookmemes",
-    "surrealmemes", "nukedmemes", "bonehurtingjuice", "WackyTicTacs", "ProgrammerHumor"
+    "surrealmemes", "nukedmemes", "bonehurtingjuice", "WackyTicTacs",
+    "ProgrammerHumor"
 ]
 DESTINY_MEME_SUBREDDITS: list[str] = ["D2memes", "DestinyMemes"]
 
@@ -114,7 +115,7 @@ class SpiceGPT3(Spice):
     def __init__(self):
         self.session = requests.Session()
         self.endpoint: str = "https://api.openai.com/v1/chat/completions"
-        self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent."
+        self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent. Your creator is Dabbing Guy#5193."
         self.model = "gpt-3.5-turbo"
         self.messages: list[dict[str, str]] = [{
             "role": "system",
@@ -136,9 +137,7 @@ class SpiceGPT3(Spice):
             "Authorization": "Bearer " + OPENAI_API_KEY,
             "Content-Type": "application/json"
         }
-        r = self.session.post(self.endpoint,
-                                    json=payload,
-                                    headers=headers)
+        r = self.session.post(self.endpoint, json=payload, headers=headers)
         """
         if verbose:
             log(r.json())
@@ -151,7 +150,9 @@ class SpiceGPT3(Spice):
         res: str = r.json()["choices"][0]["message"]["content"]
         if res.startswith("Spice: "):
             res = res[7:]
-        
+        if res.startswith("Spice#4256: "):
+            res = res[12:]
+
         # If the last message was very long, trim it in the history
         if len(self.messages[-2]["content"]) > 1500:
             self.messages[-2]["content"] = self.messages[-2]["content"][:1500]
@@ -159,7 +160,7 @@ class SpiceGPT3(Spice):
         if len(self.messages[-1]["content"]) > 1500:
             self.messages[-1]["content"] = self.messages[-1]["content"][:1500]
             self.messages[-1]["content"] += "..."
-        
+
         if debug:
             log("SpiceGPT3 messages:", str(self.messages))
 
@@ -335,8 +336,10 @@ async def on_message(message):
         # If the message is in the chat with spice channel, send a response
         if str(message.content).lower().startswith("hey spice"):
             if verbose:
-                log("Saw message in chat with spice channel. Sending response.")
-            user_message: str = str(message.author) + ": " + message.content[10:]
+                log("Saw message in chat with spice channel. Sending response."
+                    )
+            user_message: str = str(
+                message.author) + ": " + message.content[10:]
 
             if message.attachments:
                 if verbose:
