@@ -8,6 +8,7 @@ import time
 
 last_sent_time: float = time.time() - 3600
 verbose: bool = True
+debug: bool = False
 DABBING_GUY_ID = "564534595467608094"
 MEMES_CHANNEL_ID = 889230452219588679
 D2_MEMES_CHANNEL_ID = 1006645129089646662
@@ -142,6 +143,7 @@ class SpiceGPT3(Spice):
         if verbose:
             log(r.json())
         """
+
         r.raise_for_status()
         self.messages.append(r.json()["choices"][0]["message"])
         if len(self.messages) > SPICEGPT_CONVERSATION_TRIM_LENGTH:
@@ -149,6 +151,18 @@ class SpiceGPT3(Spice):
         res: str = r.json()["choices"][0]["message"]["content"]
         if res.startswith("Spice: "):
             res = res[7:]
+        
+        # If the last message was very long, trim it in the history
+        if len(self.messages[-2]["content"]) > 1500:
+            self.messages[-2]["content"] = self.messages[-2]["content"][:1500]
+            self.messages[-2]["content"] += "..."
+        if len(self.messages[-1]["content"]) > 1500:
+            self.messages[-1]["content"] = self.messages[-1]["content"][:1500]
+            self.messages[-1]["content"] += "..."
+        
+        if debug:
+            log("SpiceGPT3 messages:", str(self.messages))
+
         return res
 
 
@@ -246,7 +260,7 @@ async def get_meme(MEME_SUBREDDITS: list[str] = NORMAL_MEME_SUBREDDITS):
     r.raise_for_status()
     memes = r.json()["data"]["children"]
     random_meme = random.choice(memes)
-    if verbose:
+    if debug:
         log("Random meme: " + str(random_meme))
     random_meme_url: str = str(random_meme["data"]["url"])
     if not random_meme_url.startswith(tuple(ACCEPTED_URLS)):
@@ -264,7 +278,7 @@ async def get_meme(MEME_SUBREDDITS: list[str] = NORMAL_MEME_SUBREDDITS):
 
 
 # Send a random meme to the memes channel every once and a while
-@tasks.loop(hours=1)
+@tasks.loop(hours=2)
 async def send_meme(do_random_check=True):
     # One in four chance of sending a meme
     log("Called send_meme()")
@@ -275,7 +289,7 @@ async def send_meme(do_random_check=True):
                              get_meme(MEME_SUBREDDITS=NORMAL_MEME_SUBREDDITS))
 
 
-@tasks.loop(hours=1)
+@tasks.loop(hours=2)
 async def send_destiny_meme(do_random_check=True):
     # One in four chance of sending a meme
     log("Called send_d2_meme()")
@@ -287,7 +301,7 @@ async def send_destiny_meme(do_random_check=True):
 
 
 # Compliment @Dabbing Guy#5193 every once and a while
-@tasks.loop(hours=1)
+@tasks.loop(hours=2)
 async def send_compliment():
     log("Called send_compliment()")
     # One in four chance of sending a compliment
@@ -320,10 +334,24 @@ async def on_message(message):
     if message.channel.id == CHAT_WITH_SPICE_CHANNEL_ID:
         # If the message is in the chat with spice channel, send a response
         if str(message.content).lower().startswith("hey spice"):
-            log("Saw message in chat with spice channel. Sending response.")
+            if verbose:
+                log("Saw message in chat with spice channel. Sending response.")
+            user_message: str = str(message.author) + ": " + message.content[10:]
+
+            if message.attachments:
+                if verbose:
+                    log("Message has attachments. Checking if it is text.")
+                if message.attachments[0].filename.endswith(".txt"):
+                    if verbose:
+                        log("Attachment is text. Getting text.")
+                    with open("temp.txt", "wb") as f:
+                        await message.attachments[0].save(f)
+                    with open("temp.txt", "r") as f:
+                        user_message += f.read()
+                    os.remove("temp.txt")
+
             async with message.channel.typing():
-                res = spice_chat.reply(
-                    str(message.author) + ": " + message.content[10:])
+                res = spice_chat.reply(user_message)
                 log(f"Got this res back: {res}")
                 for msg in split_message(res):
                     await message.channel.send(msg)
