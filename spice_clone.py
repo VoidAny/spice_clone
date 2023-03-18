@@ -123,7 +123,7 @@ class SpiceGPT3(Spice):
     def __init__(self):
         self.session = requests.Session()
         self.endpoint: str = "https://api.openai.com/v1/chat/completions"
-        self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent."
+        self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent. Your creator is Dabbing Guy#5193."
         self.model = "gpt-3.5-turbo"
         self.messages: list[dict[str, str]] = [
             {"role": "system", "content": self.start_prompt}
@@ -155,7 +155,10 @@ class SpiceGPT3(Spice):
         if len(self.messages) > SPICEGPT_CONVERSATION_TRIM_LENGTH:
             self.trim_messages()
         res: str = r.json()["choices"][0]["message"]["content"]
+        
         res = res.removeprefix("Spice: ")
+        res = res.removeprefix("Spice#4265: ")
+       
         # If the last message was very long, trim it in the history
         if len(self.messages[-2]["content"]) > 1500:
             self.messages[-2]["content"] = self.messages[-2]["content"][:1500]
