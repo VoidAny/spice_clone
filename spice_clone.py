@@ -2,7 +2,7 @@ import abc
 import os
 import random
 import time
-from typing import Any
+from typing import Any, Union
 import asyncio
 import uuid
 
@@ -29,7 +29,7 @@ OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 SPICEGPT_CONVERSATION_TRIM_LENGTH: int = 201
 SPICEGPT_MESSAGE_TRIM_LENGTH: int = 1500
 
-NORMAL_MEME_SUBREDDITS: tuple[str] = (
+NORMAL_MEME_SUBREDDITS: tuple[str, ...] = (
     "memes",
     "HolUp",
     "facepalm",
@@ -41,9 +41,9 @@ NORMAL_MEME_SUBREDDITS: tuple[str] = (
     "WackyTicTacs",
     "ProgrammerHumor",
 )
-DESTINY_MEME_SUBREDDITS: tuple[str] = ("D2memes", "DestinyMemes")
+DESTINY_MEME_SUBREDDITS: tuple[str, ...] = ("D2memes", "DestinyMemes")
 
-COMPLIMENTS: tuple[str] = (
+COMPLIMENTS: tuple[str, ...] = (
     f"<@{CREATOR_ID}> is a good person",
     f"I love <@{CREATOR_ID}>",
     f"<@{CREATOR_ID}> is a great person",
@@ -52,7 +52,7 @@ COMPLIMENTS: tuple[str] = (
     f"<@{CREATOR_ID}> is the best",
 )
 
-RESPONSES = (
+RESPONSES: tuple[str, ...] = (
     "Who asked?",
     "Nobody cares",
     "stfu",
@@ -73,13 +73,13 @@ class Spice:
     """This is the base class for all spice chat bots. Exists for type hinting purposes"""
 
     @abc.abstractmethod
-    def reply(self, prompt: str) -> str:
+    async def reply(self, prompt: str) -> str:
         raise NotImplementedError
 
 
 class SpiceGPT3(Spice):
 
-    def __init__(self, messages: list[dict[str, str]] = None):
+    def __init__(self, messages: Union[list[dict[str, str]], None] = None):
         self.endpoint: str = "https://api.openai.com/v1/chat/completions"
         self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent. Your creator is Dabbing Guy#5193."
         self.model = "gpt-3.5-turbo"
@@ -230,7 +230,7 @@ async def get_reddit_video_source(url: str) -> str:
 
 
 # Function to get a random meme from reddit
-async def get_meme(meme_subreddits: list[str] = NORMAL_MEME_SUBREDDITS) -> str:
+async def get_meme(meme_subreddits: tuple[str, ...] = NORMAL_MEME_SUBREDDITS) -> str:
     ACCEPTED_URLS: tuple[str, ...] = (
         "https://v.redd.it/",
         "https://i.redd.it/",
