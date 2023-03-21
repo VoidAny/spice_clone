@@ -10,6 +10,7 @@ import discord
 from discord.ext import tasks
 import dotenv
 import aiohttp
+from aiofile import async_open
 
 last_sent_time: float = time.time() - 3600
 # Verbose is light logging whereas debug logs everything possible
@@ -149,8 +150,8 @@ repost_list: list[str] = []
 @client.event
 async def on_ready():
     log(f"Logged in as {client.user}")
-    with open("repost_list.txt", "r") as f:
-        for line in f:
+    async with async_open("repost_list.txt", "r") as f:
+        async for line in f:
             repost_list.append(line.strip())
     send_meme.start()
     send_destiny_meme.start()
@@ -163,20 +164,20 @@ async def send_response(channel: discord.abc.Messageable):
     await channel.send(random.choice(RESPONSES))
 
 
-def update_repost_list(url: str) -> None:
+async def update_repost_list(url: str) -> None:
     global repost_list
     if url in repost_list:
         return
     repost_list.append(url)
-    with open("repost_list.txt", "a") as f:
-        f.write(url + "\n")
+    async with async_open("repost_list.txt", "a") as f:
+        await f.write(url + "\n")
 
 
 async def download_file(session: aiohttp.ClientSession, url: str,
                         filename: str) -> None:
     async with session.get(url) as r:
-        with open(filename, "wb") as f:
-            f.write(await r.read())
+        async with async_open(filename, "wb") as f:
+            await f.write(await r.read())
 
 
 async def get_reddit_video_source(url: str) -> str:
@@ -217,16 +218,14 @@ async def get_reddit_video_source(url: str) -> str:
             asyncio.create_task(
                 download_file(session, audio_url, "audio.mp4")))
 
-    # Merge video and audio
+    # Get a random filename
+    name = f"{uuid.uuid4().hex}.mp4"
+    # Merge video and audio (hopefully run in background and not block)
     os.system(
-        f"/usr/bin/ffmpeg -y -hide_banner -loglevel error -i video.mp4 -i audio.mp4 -c copy output.mp4"
+        f"/usr/bin/ffmpeg -y -hide_banner -loglevel error -i video.mp4 -i audio.mp4 -c copy media/{name} &"
     )
 
-    # Into media folder
-    name = uuid.uuid4().hex
-    os.rename("output.mp4", f"media/{name}.mp4")
-
-    return f"https://spicey-media.absl.ro/{name}.mp4"
+    return f"https://spicey-media.absl.ro/{name}"
 
 
 # Function to get a random meme from reddit
@@ -261,7 +260,7 @@ async def get_meme(meme_subreddits: tuple[str, ...] = NORMAL_MEME_SUBREDDITS) ->
     if random_meme_url in repost_list:
         if verbose: log("Meme url in repost list, trying again")
         return await get_meme(meme_subreddits=meme_subreddits)
-    update_repost_list(random_meme_url)
+    await update_repost_list(random_meme_url)
     if random_meme_url.startswith("https://v.redd.it/"):
         return await get_reddit_video_source(random_meme_url)
     return random_meme_url
