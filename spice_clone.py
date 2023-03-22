@@ -64,7 +64,7 @@ RESPONSES = (
     "bruh moment",
     "arm wrestle me bruh",
     "you're actually retarded",
-    "Who asked"
+    "Who asked",
 )
 
 
