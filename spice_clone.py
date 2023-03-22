@@ -63,6 +63,9 @@ RESPONSES: tuple[str, ...] = (
     "lol",
     "bruj",
     "bruh moment",
+    "arm wrestle me bruh",
+    "you're actually retarded",
+    "Who asked",
 )
 
 
