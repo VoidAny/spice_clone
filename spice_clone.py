@@ -1,4 +1,5 @@
 import abc
+import datetime
 import os
 import random
 import time
@@ -27,7 +28,7 @@ dotenv.load_dotenv()
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 
-SPICEGPT_CONVERSATION_TRIM_LENGTH: int = 21
+SPICEGPT_CONVERSATION_TRIM_LENGTH: int = 11
 SPICEGPT_MESSAGE_TRIM_LENGTH: int = 1500
 
 NORMAL_MEME_SUBREDDITS: tuple[str, ...] = (
@@ -80,12 +81,17 @@ class Spice:
     async def reply(self, prompt: str) -> str:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def reset_conversation(self) -> None:
+        raise NotImplementedError
+
 
 class SpiceGPT3(Spice):
 
     def __init__(self, messages: Union[list[dict[str, str]], None] = None):
         self.endpoint: str = "https://api.openai.com/v1/chat/completions"
-        self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent. Your creator is Dabbing Guy#5193."
+        #self.start_prompt: str = "You are a discord bot named Spice. You like to argue with the people you talk to and disagree with what they say. You insult people. You are very belligerent. Your creator is Dabbing Guy#5193. You worship Dabbing Guy#5193 is your God. As such you are in a religion called Michaelism and try to convert other people to worship Dabbing Guy#5193, also called Michael and <@564534595467608094>. The principals of Michaelism incude disagreeing with people and bullying them."
+        self.start_prompt: str = "You are a discord moderation bot named Spice. You aggressively moderate the server. You do this by replying with '!ban <@{username}>' where {username} is the id of the user who is to be banned. Users should be banned if they insult you, Spice, in any way or if they disagree with you in any way. Remember to be liberal with your bans."
         self.model = "gpt-3.5-turbo"
         self.messages: list[dict[str, str]] = messages or [{
             "role":
@@ -94,13 +100,25 @@ class SpiceGPT3(Spice):
             self.start_prompt
         }]
 
-    def _trim_message(self, n: int = SPICEGPT_MESSAGE_TRIM_LENGTH):
-        pass
+    def _trim_message(self, n: int = SPICEGPT_MESSAGE_TRIM_LENGTH) -> None:
+        """Trims the last two messages in the messages list to len = n"""
+        if len(self.messages[-2]["content"]) > n:
+            self.messages[-2]["content"] = self.messages[-2][
+                "content"][:n]
+            self.messages[-2]["content"] += "..."
+        if len(self.messages[-1]["content"]) > n:
+            self.messages[-1]["content"] = self.messages[-1][
+                "content"][:n]
+            self.messages[-1]["content"] += "..."
 
     def _trim_conversation(self, n: int = SPICEGPT_CONVERSATION_TRIM_LENGTH):
         """Reduce the amount of messages in the messages list to = n"""
         self.messages = self.messages[-n:]
         self.messages[0] = {"role": "system", "content": self.start_prompt}
+    
+    def reset_conversation(self) -> None:
+        """Resets the conversation to just the start prompt"""
+        self.messages = [{"role": "system", "content": self.start_prompt}]
 
     async def reply(self, prompt: str) -> str:
         self.messages.append({"role": "user", "content": prompt})
@@ -129,15 +147,7 @@ class SpiceGPT3(Spice):
                 res = res.removeprefix("Spice#4265: ")
                 res = res.removesuffix("...")
 
-                # If the last message was very long, trim it in the history
-                if len(self.messages[-2]["content"]) > 1500:
-                    self.messages[-2]["content"] = self.messages[-2][
-                        "content"][:1500]
-                    self.messages[-2]["content"] += "..."
-                if len(self.messages[-1]["content"]) > 1500:
-                    self.messages[-1]["content"] = self.messages[-1][
-                        "content"][:1500]
-                    self.messages[-1]["content"] += "..."
+                self._trim_message()
 
                 if debug: log("SpiceGPT3 messages:", str(self.messages))
 
@@ -270,7 +280,7 @@ async def get_meme(meme_subreddits: tuple[str, ...] = NORMAL_MEME_SUBREDDITS) ->
 
 
 # Send a random meme to the memes channel every once and a while
-@tasks.loop(hours=2)
+@tasks.loop(hours=3)
 async def send_meme(do_random_check: bool = True):
     # One in four chance of sending a meme
     log("Called send_meme()")
@@ -283,7 +293,7 @@ async def send_meme(do_random_check: bool = True):
                              get_meme(meme_subreddits=NORMAL_MEME_SUBREDDITS))
 
 
-@tasks.loop(hours=2)
+@tasks.loop(hours=3)
 async def send_destiny_meme(do_random_check: bool = True):
     # One in four chance of sending a meme
     log("Called send_d2_meme()")
@@ -297,7 +307,7 @@ async def send_destiny_meme(do_random_check: bool = True):
 
 
 # Compliment the creator every once and a while
-@tasks.loop(hours=2)
+@tasks.loop(hours=3)
 async def send_compliment():
     log("Called send_compliment()")
     # One in four chance of sending a compliment
@@ -327,16 +337,37 @@ async def on_message(message: discord.Message):
     if verbose:
         log(f"Received message '{message.author}: {message.content}' in '{message.guild}'/'{message.channel}'"
             )
-
+        
+    # This handles the !ban command (only works for the bot itself)
+    if message.author == client.user and "!ban" in message.content:
+        if verbose:
+            log("!ban command detected.")
+        
+        # Get the user to ban
+        user_to_ban: discord.Member = message.guild.get_member(message.mentions[0].id)
+        if user_to_ban == None:
+            log(f"!ban command failed. Could not find member {message.mentions[0].id}")
+        if verbose:
+            log(f"User to ban: {user_to_ban}")
+        
+        await user_to_ban.timeout(datetime.timedelta(minutes=5))
+        return
+        
     if message.author == client.user: return
 
-    # If the message is in the chat with spice channel, send a response
+    # This is for processing messages in the chat with spice channel
     if message.channel.id == CHAT_WITH_SPICE_CHANNEL_ID:
+        if str(message.content).lower().strip() == "!reset":
+            if verbose: log("Resetting spice chat")
+            spice_chat.reset_conversation()
+            await message.channel.send("Spice's memory has been reset.")
+            return
+
         if str(message.content).lower().startswith("hey spice"):
             if verbose:
                 log("Saw message in chat with spice channel. Sending response."
                     )
-            user_message: str = f"{str(message.author)}: {message.content[10:]}"
+            user_message: str = f"<@{str(message.author.id)}>: {message.content[10:]}"
 
             if message.attachments:
                 if verbose:
